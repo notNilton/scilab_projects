@@ -1,77 +1,86 @@
-clear; clc; clf();
+clear;clc;
 
-// === DADOS REAIS ===
-anos = [1959:1998]';
-dados = [
-    522 20; 573 22; 597 22; 603 23; 639 20; 726 26; 762 28; 900 26; 1008 22; 1176 22;
-    1191 17; 1320 18; 1323 20; 1194 13; 1137 24; 1026 31; 915 41; 708 44; 573 34; 905 40;
-    738 43; 705 50; 544 30; 972 14; 900 23; 1041 24; 1062 22; 1025 20; 1380 16; 1653 12;
-    1397 11; 1216 15; 1313 12; 1596 12; 1880 13; 1770 17; 2422 16; 1200 22; 500 24; 700 14
-];
+// === DADOS REAIS DE ISLE ROYALE ===
+Anos_reais = 1959:1:1998;
+Alces_reais = [522, 573, 597, 603, 639, 726, 762, 900, 1008, 1176, 1191, 1320, 1323, 1194, 1137, 1026, 915, 708, 573, 905, 738, 705, 544, 972, 900, 1041, 1062, 1025, 1380, 1653, 1397, 1216, 1313, 1596, 1880, 1770, 2422, 1200, 500, 700];
+Lobos_reais = [20, 22, 22, 23, 20, 26, 28, 26, 22, 22, 17, 18, 20, 13, 24, 31, 41, 44, 34, 40, 43, 50, 30, 14, 23, 24, 22, 20, 16, 12, 11, 15, 12, 12, 13, 17, 16, 22, 24, 14];
 
-alces_reais = dados(:,1);
-lobos_reais = dados(:,2);
+// === PARÂMETROS AJUSTADOS PARA UM COMPORTAMENTO MAIS CÍCLICO ===
+alpha = 0.25;      // Taxa de crescimento da presa (alces)
+beta = 0.001;      // Taxa de mortalidade da presa (interação mais forte)
+delta = 0.0002;    // Taxa de crescimento do predador (interação mais forte)
+gamma = 0.2;       // Taxa de morte natural do predador
 
-// === PARÂMETROS PARA CICLO ESTÁVEL (não ajustados, apenas ilustrativos) ===
-alpha = 0.2;     // crescimento alces
-beta = 0.0002;   // predação
-delta = 0.0001;  // conversão
-gamma = 0.5;     // mortalidade lobos
-
-// === MODELO ===
-function dydt = modelo(t, y)
-    N1 = y(1); N2 = y(2);
-    dN1dt = alpha*N1 - beta*N1*N2;
-    dN2dt = delta*N1*N2 - gamma*N2;
-    dydt = [dN1dt; dN2dt];
+// Definição da função ODE
+function dydt=myODE(t, y)
+    dydt = zeros(2,1);
+    dydt(1) = alpha*y(1) - beta*y(1)*y(2);
+    dydt(2) = delta*y(1)*y(2) - gamma*y(2);
 endfunction
 
-// === SIMULAÇÃO ===
-t = 0:0.1:39;  // passo fino para curva suave
-y0 = [alces_reais(1); lobos_reais(1)];
-y = ode(y0, 0, t, modelo);
-y = y';
+// Função para resolver e plotar a solução
+function run_myODE(Anos_reais, Alces_reais, Lobos_reais)
+    // === Condições iniciais e tempo de simulação ===
+    t0 = 0;
+    tfinal = length(Anos_reais) - 1; // 39 anos
+    y0 = [Alces_reais(1); Lobos_reais(1)]; // População inicial de 1959
 
-// Interpolar para comparar apenas nos anos inteiros (opcional)
-t_anos = 0:39;
-y_anos = interp1(t, y, t_anos)';
-alces_sim = y_anos(:,1);
-lobos_sim = y_anos(:,2);
+    t = linspace(t0, tfinal, 1000);
+    y = ode(y0, t0, t, myODE);
 
-// === GRÁFICOS ===
-figure(1); clf();
-subplot(2,1,1);
-plot(anos, alces_reais, 'bo', 'MarkerSize', 4);
-plot(1959 + t, y(:,1), 'r-', 'LineWidth', 2);
-title("Alces: Dados Reais vs Modelo (comportamento cíclico)");
-xlabel("Ano"); ylabel("População");
-legend(["Reais", "Modelo"], 2);
+    // === GRÁFICO 1: Populações ao longo do tempo (Simulado) ===
+    figure(1);
+    clf();
+    plot(t, y', "LineWidth", 3);
+    title("Simulação Cíclica das Populações de Alces vs. Lobos");
+    xlabel("Anos (a partir de 1959)");
+    ylabel("População");
+    legend(["Alces (Presa)", "Lobos (Predador)"], "location", "northwest");
 
-subplot(2,1,2);
-plot(anos, lobos_reais, 'go', 'MarkerSize', 4);
-plot(1959 + t, y(:,2), 'm-', 'LineWidth', 2);
-title("Lobos: Dados Reais vs Modelo (comportamento cíclico)");
-xlabel("Ano"); ylabel("População");
-legend(["Reais", "Modelo"], 2);
+    // === GRÁFICO 2: Plano de Fases (Simulado) ===
+    figure(2);
+    clf();
+    plot(y(1,:), y(2,:), "r-", "LineWidth", 2);
+    title("Plano de Fase: Alces vs Lobos");
+    xlabel("População de Alces");
+    ylabel("População de Lobos");
+    legend("Trajetória", "location", "northwest");
 
-figure(2); clf();
-plot(alces_reais, lobos_reais, 'bo-', 'MarkerSize', 5, 'LineWidth', 2);
-plot(y(:,1), y(:,2), 'r-', 'LineWidth', 2);
-title("Plano de Fases: Comportamento Cíclico Esperado vs Real");
-xlabel("Alces"); ylabel("Lobos");
-legend(["Dados Reais", "Modelo Teórico"], 2);
+    // === IMPRIMIR COMPARAÇÃO NO CONSOLE ===
+    printf("=======================================================================\n");
+    printf("    Ano   | Alces (Real) | Alces (Simulado) | Lobos (Real) | Lobos (Simulado)\n");
+    printf("=======================================================================\n");
+    for i=1:length(Anos_reais)
+        // Encontra o índice na simulação que corresponde ao ano atual
+        ano_corrente = i - 1;
+        sim_index = find(t >= ano_corrente, 1);
+        
+        // Pega os valores simulados
+        alces_sim = y(1, sim_index);
+        lobos_sim = y(2, sim_index);
+        
+        printf("    %d  |     %4d     |       %7.1f      |      %2d      |        %5.1f\n", Anos_reais(i), Alces_reais(i), alces_sim, Lobos_reais(i), lobos_sim);
+    end
+    printf("=======================================================================\n");
 
-// === ANÁLISE HONESTA ===
-disp(" ");
-disp("=== ANÁLISE ===");
-disp("O modelo de Lotka-Volterra clássico NÃO reproduz quantitativamente os dados reais.");
-disp("Motivos:");
-disp(" - Dados reais têm eventos não modelados (epidemias, invernos rigorosos, etc.)");
-disp(" - Modelo assume ciclos perfeitos e contínuos — a realidade é caótica.");
-disp(" ");
-disp("USO ADEQUADO DO MODELO:");
-disp(" - Ilustrar o comportamento cíclico teórico presa-predador.");
-disp(" - Mostrar defasagem: aumento de presas → aumento de predadores → colapso de presas → colapso de predadores.");
-disp(" - Servir de base para modelos mais realistas (ex: com termo logístico).");
-disp(" ");
-disp("ERRO RELATIVO NÃO É RELEVANTE AQUI — o modelo não é preditivo, é qualitativo.");
+    // === GRÁFICO 3: COMPARAÇÃO VISUAL - DADOS REAIS vs. SIMULADOS ===
+    figure(3);
+    clf();
+    // Plotar os dados simulados como linhas
+    plot(t, y(1,:), 'b-', 'LineWidth', 2); // Alces simulados
+    plot(t, y(2,:), 'g-', 'LineWidth', 2); // Lobos simulados
+
+    // Plotar os dados reais como marcadores (pontos)
+    anos_plot = Anos_reais - Anos_reais(1); // Eixo X de 0 a 39
+    plot(anos_plot, Alces_reais, 'bo', 'MarkerFaceColor', 'b', 'MarkerSize', 5); // Alces reais
+    plot(anos_plot, Lobos_reais, 'gs', 'MarkerFaceColor', 'g', 'MarkerSize', 5); // Lobos reais
+    
+    title("Comparação: Dados Reais vs. Dados da Simulação");
+    xlabel("Anos (a partir de 1959)");
+    ylabel("População");
+    legend(["Alces Simulado", "Lobos Simulado", "Alces Real (dados)", "Lobos Real (dados)"], "location", "northwest");
+    
+endfunction
+
+// Chamar a função para executar, passando os dados reais
+run_myODE(Anos_reais, Alces_reais, Lobos_reais);
